@@ -1,0 +1,52 @@
+name: build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    permissions:
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Download BootCampESD.pkg
+        run: curl -fsSLo BootCampESD.pkg https://swcdn.apple.com/content/downloads/24/46/041-91737-A_KOBGOTCIEZ/0b9gnebg3ivdfsd79simxpr60vvx9sy31k/BootCampESD.pkg
+
+      - name: Extract BootCampESD.pkg
+        run: |
+          xar -xf BootCampESD.pkg
+          gzip -cd Payload | cpio -i
+
+      - name: Mount WindowsSupport.dmg
+        run: hdiutil attach 'Library/Application Support/BootCamp/WindowsSupport.dmg'
+
+      - name: Archive WindowsSupport.zip
+        run: ditto -c -k --sequesterRsrc --keepParent '/Volumes/Boot Camp' WindowsSupport.zip
+
+      - name: Generate artifact attestation
+        if: github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            BootCampESD.pkg
+            WindowsSupport.zip
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: BootCamp
+          path: |
+            BootCampESD.pkg
+            WindowsSupport.zip
+          if-no-files-found: error
+          compression-level: 0

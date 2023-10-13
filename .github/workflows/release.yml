@@ -1,0 +1,33 @@
+name: release
+
+on:
+  push:
+    tags:
+      - '**'
+
+jobs:
+  build:
+    permissions:
+      attestations: write
+      id-token: write
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: [build]
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: BootCamp
+
+      - name: Release
+        run: |
+          gh release create ${{ github.ref_name }} BootCampESD.pkg WindowsSupport.zip --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ github.token }}
